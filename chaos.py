@@ -6,7 +6,7 @@ import pygame
 
 WIDTH, HEIGHT = 1_000, 1_000
 FPS = 60
-ENTROPHY = 1000
+ENTROPHY = 10
 
 
 balls: List["Ball"] = []
@@ -73,30 +73,31 @@ def collisions() -> None:
 
                 # 7. Обновляем скорость и угол для ball1
                 ball1.v = (vx1**2 + vy1**2) ** 0.5
-                ball1.a = atan2(vy1, vx1)
+                ball1.angle = atan2(vy1, vx1)
 
                 # 8. Обновляем скорость и угол для ball2
                 ball2.v = (vx2**2 + vy2**2) ** 0.5
-                ball2.a = atan2(vy2, vx2)
+                ball2.angle = atan2(vy2, vx2)
 
 
 class Ball:
-    R_MIN, R_MAX = 2, min(WIDTH, HEIGHT)
+    R_MIN, R_MAX = 2, min(WIDTH, HEIGHT) // 4
     V_MAX = FPS // 30  # 1 fps = 1 ppx per second // 2 as 2 balls
 
     ID = 0
 
-    __slots__ = ("id", "radius", "color", "v", "a", "x", "y")
+    __slots__ = ("id", "radius", "color", "v", "angle", "x", "y")
 
     def __init__(
         self,
         radius: int = None,
+        angle: float = None,
     ):
         self.id = Ball.ID
         Ball.ID += 1
 
         if isinstance(radius, int):
-            assert Ball.R_MIN <= radius and radius <= Ball.R_MAX, f"{radius=} not in [{Ball.R_MIN}..{Ball.R_MAX}]"
+            assert Ball.R_MIN <= radius <= Ball.R_MAX, f"{radius=} not in [{Ball.R_MIN}..{Ball.R_MAX}]"
             self.radius = radius
         else:
             self.radius = randint(Ball.R_MIN, Ball.R_MAX)
@@ -104,7 +105,12 @@ class Ball:
         self.color = pygame.Color(randint(0, 255), randint(0, 255), randint(0, 255), randint(0, 255))
 
         self.v = random() * self.V_MAX
-        self.a = random() * 2 * pi
+
+        if isinstance(angle, (int, float)):
+            assert 0 <= angle <= 2 * pi, f"{angle=} not in [0..{2*pi=}]"
+            self.angle = angle
+        else:
+            self.angle = random() * 2 * pi
 
         self.x = randint(self.radius, WIDTH - self.radius)
         self.y = randint(self.radius, HEIGHT - self.radius)
@@ -116,11 +122,11 @@ class Ball:
 
     @property
     def vx(self):
-        return self.v * cos(self.a)
+        return self.v * cos(self.angle)
 
     @property
     def vy(self):
-        return self.v * sin(self.a)
+        return self.v * sin(self.angle)
 
     @property
     def is_outside(self):
@@ -132,22 +138,23 @@ class Ball:
         return distance((self.x, self.y), (ball.x, ball.y)) <= self.radius + ball.radius
 
     def move(self) -> None:
+        """Расчет новой координаты"""
         # следующая координата
-        x = self.x + self.v * cos(self.a)
-        y = self.y + self.v * sin(self.a)
+        x = self.x + self.v * cos(self.angle)
+        y = self.y + self.v * sin(self.angle)
 
         # столкновения со стенками
-        if (x - self.radius < 0) and cos(self.a) < 0:  # левая стенка
-            self.a = pi - self.a
+        if (x - self.radius < 0) and cos(self.angle) < 0:  # левая стенка
+            self.angle = pi - self.angle
             x = self.x
-        elif (x + self.radius > WIDTH) and cos(self.a) > 0:  # правая стенка
-            self.a = pi - self.a
+        elif (x + self.radius > WIDTH) and cos(self.angle) > 0:  # правая стенка
+            self.angle = pi - self.angle
             x = self.x
-        if (y - self.radius < 0) and sin(self.a) < 0:  # верхняя стенка
-            self.a = -self.a
+        if (y - self.radius < 0) and sin(self.angle) < 0:  # верхняя стенка
+            self.angle = -self.angle
             y = self.y
-        elif (y + self.radius > HEIGHT) and sin(self.a) > 0:  # нижняя стенка
-            self.a = -self.a
+        elif (y + self.radius > HEIGHT) and sin(self.angle) > 0:  # нижняя стенка
+            self.angle = -self.angle
             y = self.y
 
         self.x, self.y = x, y
@@ -155,7 +162,7 @@ class Ball:
     def draw(self, window):
         """Рисование шара на экране"""
         pygame.draw.circle(window, self.color, (self.x, self.y), self.radius)
-        pygame.draw.line(window, "black", (int(self.x), int(self.y)), (int(self.x + self.vx * 5), int(self.y + self.vy * 5)), 2)  # Вектор скорости
+        pygame.draw.line(window, "black", (int(self.x), int(self.y)), (int(self.x + self.vx), int(self.y + self.vy)), 2)  # Вектор скорости
 
 
 def main(entrophy: int):
@@ -168,7 +175,7 @@ def main(entrophy: int):
 
     for _ in range(entrophy):
         while True:
-            new_ball = Ball(radius=5)
+            new_ball = Ball()
             for ball in balls:
                 if new_ball.is_collide(ball):
                     break
